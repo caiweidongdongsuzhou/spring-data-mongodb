@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 the original author or authors.
+ * Copyright 2013-2016 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,14 @@
  */
 package org.springframework.data.mongodb.core.spel;
 
-import org.springframework.expression.spel.ExpressionState;
-import org.springframework.expression.spel.ast.MethodReference;
+import static org.springframework.data.mongodb.core.spel.MethodReferenceNode.AggregationMethodReference.ArgumentType.*;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+
+import org.springframework.expression.spel.ExpressionState;
+import org.springframework.expression.spel.ast.MethodReference;
 
 /**
  * An {@link ExpressionNode} representing a method reference.
@@ -28,95 +30,112 @@ import java.util.Map;
  * @author Oliver Gierke
  * @author Thomas Darimont
  * @author Sebastien Gerard
+ * @author Christoph Strobl
  */
 public class MethodReferenceNode extends ExpressionNode {
 
-	private static final Map<String, String> FUNCTIONS;
+	private static final Map<String, AggregationMethodReference> FUNCTIONS;
 
 	static {
-		Map<String, String> map = new HashMap<String, String>();
 
-		map.put("and", "$and"); // Returns true only when all its expressions evaluate to true.
-		map.put("or", "$or"); // Returns true when any of its expressions evaluates to true.
-		map.put("not", "$not"); // Returns the boolean value that is the opposite of its argument expression.
+		Map<String, AggregationMethodReference> map = new HashMap<String, AggregationMethodReference>();
 
-		map.put("setEquals", "$setEquals"); // Returns true if the input sets have the same distinct elements.
-		map.put("setIntersection", "$setIntersection"); // Returns a set with elements that appear in all of the input sets.
-		map.put("setUnion", "$setUnion"); // Returns a set with elements that appear in any of the input sets.
-		map.put("setDifference", "$setDifference"); // Returns a set with elements that appear in the 1st set but not in the
+		// boolean operators
+		map.put("and", AggregationMethodReference.builder().methodName("$and").argumentType(ARRAY).build());
+		map.put("or", AggregationMethodReference.builder().methodName("$or").argumentType(ARRAY).build());
+		map.put("not", AggregationMethodReference.builder().methodName("$not").argumentType(ARRAY).build());
+
+		// set operators
+		map.put("setEquals", AggregationMethodReference.builder().methodName("$setEquals").argumentType(ARRAY).build());
+		map.put("setIntersection", AggregationMethodReference.builder().methodName("$setIntersection").argumentType(ARRAY).build());
+		map.put("setUnion", AggregationMethodReference.builder().methodName("$setUnion").argumentType(ARRAY).build());
+		map.put("setDifference", AggregationMethodReference.builder().methodName("$setDifference").argumentType(ARRAY).build());
 		// 2nd.
-		map.put("setIsSubset", "$setIsSubset"); // Returns true if all elements of the 1st set appear in the 2nd set.
-		map.put("anyElementTrue", "$anyElementTrue"); // Returns whether any elements of a set evaluate to true.
-		map.put("allElementsTrue", "$allElementsTrue"); // Returns whether no element of a set evaluates to false.
+		map.put("setIsSubset", AggregationMethodReference.builder().methodName("$setIsSubset").argumentType(ARRAY).build());
+		map.put("anyElementTrue", AggregationMethodReference.builder().methodName("$anyElementTrue").argumentType(ARRAY).build());
+		map.put("allElementsTrue", AggregationMethodReference.builder().methodName("$allElementsTrue").argumentType(ARRAY).build());
 
-		map.put("cmp", "$cmp"); // Returns: 0 if the two values are equivalent, 1 if the first value is greater than the
+		// comparison operators
+		map.put("cmp", AggregationMethodReference.builder().methodName("$cmp").argumentType(ARRAY).build());
 		// second, and -1 if the first value is less than the second.
-		map.put("eq", "$eq"); // Returns true if the values are equivalent.
-		map.put("gt", "$gt"); // Returns true if the first value is greater than the second.
-		map.put("gte", "$gte"); // Returns true if the first value is greater than or equal to the second.
-		map.put("lt", "$lt"); // Returns true if the first value is less than the second.
-		map.put("lte", "$lte"); // Returns true if the first value is less than or equal to the second.
-		map.put("ne", "$ne"); // Returns true if the values are not equivalent.
+		map.put("eq", AggregationMethodReference.builder().methodName("$eq").argumentType(ARRAY).build());
+		map.put("gt", AggregationMethodReference.builder().methodName("$gt").argumentType(ARRAY).build());
+		map.put("gte", AggregationMethodReference.builder().methodName("$gte").argumentType(ARRAY).build());
+		map.put("lt", AggregationMethodReference.builder().methodName("$lt").argumentType(ARRAY).build());
+		map.put("lte", AggregationMethodReference.builder().methodName("$lte").argumentType(ARRAY).build());
+		map.put("ne", AggregationMethodReference.builder().methodName("$ne").argumentType(ARRAY).build());
 
-		map.put("abs", "$abs"); // Returns the absolute value of a number.;
-		map.put("add", "$add"); // Adds numbers to return the sum, or adds numbers and a date to return a new date.
-		map.put("ceil", "$ceil"); // Returns the smallest integer greater than or equal to the specified number.
-		map.put("divide", "$divide"); // Returns the result of dividing the first number by the second.
-		map.put("exp", "$exp"); // Raises e to the specified exponent.
-		map.put("floor", "$floor"); // Returns the largest integer less than or equal to the specified number.
-		map.put("ln", "$ln"); // Calculates the natural log of a number.
-		map.put("log", "$log"); // Calculates the log of a number in the specified base.
-		map.put("log10", "$log10"); // Calculates the log base 10 of a number.
-		map.put("mod", "$mod"); // Returns the remainder of the first number divided by the second.
-		map.put("multiply", "$multiply"); // Multiplies numbers to return the product.
-		map.put("pow", "$pow"); // Raises a number to the specified exponent.
-		map.put("sqrt", "$sqrt"); // Calculates the square root.
-		map.put("subtract", "$subtract"); // Returns the result of subtracting the second value from the first. If the
-		// two values are numbers, return the difference. If the two values are dates, return the difference in
-		// milliseconds.
-		map.put("trunc", "$trunc"); // Truncates a number to its integer.
+		// arithmetic operators
+		map.put("abs", AggregationMethodReference.builder().methodName("$abs").argumentType(SINGLE).build());
+		map.put("add", AggregationMethodReference.builder().methodName("$add").argumentType(ARRAY).build());
+		map.put("ceil", AggregationMethodReference.builder().methodName("$ceil").argumentType(SINGLE).build());
+		map.put("divide", AggregationMethodReference.builder().methodName("$divide").argumentType(ARRAY).build());
+		map.put("exp", AggregationMethodReference.builder().methodName("$exp").argumentType(SINGLE).build());
+		map.put("floor", AggregationMethodReference.builder().methodName("$floor").argumentType(SINGLE).build());
+		map.put("ln", AggregationMethodReference.builder().methodName("$ln").argumentType(SINGLE).build());
+		map.put("log", AggregationMethodReference.builder().methodName("$log").argumentType(ARRAY).build());
+		map.put("log10", AggregationMethodReference.builder().methodName("$log10").argumentType(SINGLE).build());
+		map.put("mod", AggregationMethodReference.builder().methodName("$mod").argumentType(ARRAY).build());
+		map.put("multiply", AggregationMethodReference.builder().methodName("$multiply").argumentType(ARRAY).build());
+		map.put("pow", AggregationMethodReference.builder().methodName("$pow").argumentType(ARRAY).build());
+		map.put("sqrt", AggregationMethodReference.builder().methodName("$sqrt").argumentType(SINGLE).build());
+		map.put("subtract", AggregationMethodReference.builder().methodName("$subtract").argumentType(ARRAY).build());
+		map.put("trunc", AggregationMethodReference.builder().methodName("$trunc").argumentType(SINGLE).build());
 
-		map.put("concat", "$concat"); // Concatenates two strings.
-		map.put("substr", "$substr"); // Takes a string and returns portion of that string.
-		map.put("toLower", "$toLower"); // Converts a string to lowercase.
-		map.put("toUpper", "$toUpper"); // Converts a string to uppercase.
-		map.put("strcasecmp", "$strcasecmp"); // Compares two strings and returns an integer that reflects the comparison.
+		// string operators
+		map.put("concat", AggregationMethodReference.builder().methodName("$concat").argumentType(ARRAY).build());
+		map.put("strcasecmp", AggregationMethodReference.builder().methodName("$strcasecmp").argumentType(ARRAY).build());
+		map.put("substr", AggregationMethodReference.builder().methodName("$substr").argumentType(ARRAY).build());
+		map.put("toLower", AggregationMethodReference.builder().methodName("$toLower").argumentType(SINGLE).build());
+		map.put("toUpper", AggregationMethodReference.builder().methodName("$toUpper").argumentType(SINGLE).build());
+		map.put("strcasecmp", AggregationMethodReference.builder().methodName("$strcasecmp").argumentType(ARRAY).build());
 
-		map.put("meta", "$meta"); // Access text search metadata.
+		// text search operators
+		map.put("meta", AggregationMethodReference.builder().methodName("$meta").argumentType(SINGLE).build());
 
-		map.put("arrayElemAt", "$arrayElemAt"); // Returns the element at the specified array index.
-		map.put("concatArrays", "$concatArrays"); // Concatenates arrays to return the concatenated array.
-		map.put("filter", "$filter"); // Selects a subset of the array to return an array with only the elements that
-		// match the filter condition.
-		map.put("isArray", "$isArray"); // Determines if the operand is an array. Returns a boolean.
-		map.put("size", "$size"); // Returns the number of elements in the array.
-		map.put("slice", "$slice"); // Returns a subset of an array.
+		// array operators
+		map.put("arrayElemAt", AggregationMethodReference.builder().methodName("$arrayElemAt").argumentType(ARRAY).build());
+		map.put("concatArrays", AggregationMethodReference.builder().methodName("$concatArrays").argumentType(ARRAY).build());
+		map.put("filter", AggregationMethodReference.builder().methodName("$filter").argumentType(MAPPED).argumentMap(new String[]{"input", "as", "cond"}).build());
+		map.put("isArray", AggregationMethodReference.builder().methodName("$isArray").argumentType(SINGLE).build());
+		map.put("size", AggregationMethodReference.builder().methodName("$size").argumentType(SINGLE).build());
+		map.put("slice", AggregationMethodReference.builder().methodName("$slice").argumentType(ARRAY).build());
 
-		map.put("map", "$map"); // Applies a subexpression to each element of an array and returns the array of
-		// resulting values in order.
-		map.put("let", "$let"); // Defines variables for use within the scope of a subexpression and returns the result
-		// of the subexpression.
+		// variable operators
+		map.put("map", AggregationMethodReference.builder().methodName("$map").argumentType(MAPPED).argumentMap(new String[]{"input", "as", "in"}).build());
+		map.put("let", AggregationMethodReference.builder().methodName("$let").argumentType(MAPPED).argumentMap(new String[]{"vars", "in"}).build());
 
-		map.put("literal", "$literal"); // Return a value without parsing.
+		// literal operators
+		map.put("literal", AggregationMethodReference.builder().methodName("$literal").argumentType(SINGLE).build());
 
-		map.put("dayOfYear", "$dayOfYear"); // Converts a date to a number between 1 and 366.
-		map.put("dayOfMonth", "$dayOfMonth"); // Converts a date to a number between 1 and 31.
-		map.put("dayOfWeek", "$dayOfWeek"); // Converts a date to a number between 1 and 7.
-		map.put("year", "$year"); // Converts a date to the full year.
-		map.put("month", "$month"); // Converts a date into a number between 1 and 12.
-		map.put("week", "$week"); // Converts a date into a number between 0 and 53
-		map.put("hour", "$hour"); // Converts a date into a number between 0 and 23.
-		map.put("minute", "$minute"); // Converts a date into a number between 0 and 59.
-		map.put("second", "$second"); // Converts a date into a number between 0 and 59. May be 60 to account for leap
-		// seconds.
-		map.put("millisecond", "$millisecond"); // Returns the millisecond portion of a date as an integer between 0 and
-		// 999.
-		map.put("dateToString", "$dateToString"); // Returns the date as a formatted string.
+		// date operators
+		map.put("dayOfYear", AggregationMethodReference.builder().methodName("$dayOfYear").argumentType(SINGLE).build());
+		map.put("dayOfMonth", AggregationMethodReference.builder().methodName("$dayOfMonth").argumentType(SINGLE).build());
+		map.put("dayOfWeek", AggregationMethodReference.builder().methodName("$dayOfWeek").argumentType(SINGLE).build());
+		map.put("year", AggregationMethodReference.builder().methodName("$year").argumentType(SINGLE).build());
+		map.put("month", AggregationMethodReference.builder().methodName("$month").argumentType(SINGLE).build());
+		map.put("week", AggregationMethodReference.builder().methodName("$week").argumentType(SINGLE).build());
+		map.put("hour", AggregationMethodReference.builder().methodName("$hour").argumentType(SINGLE).build());
+		map.put("minute", AggregationMethodReference.builder().methodName("$minute").argumentType(SINGLE).build());
+		map.put("second", AggregationMethodReference.builder().methodName("$second").argumentType(SINGLE).build());
+		map.put("millisecond", AggregationMethodReference.builder().methodName("$millisecond").argumentType(SINGLE).build());
+		map.put("dateToString", AggregationMethodReference.builder().methodName("$dateToString").argumentType(MAPPED).argumentMap(new String[]{"format", "date"}).build());
 
-		map.put("cond", "$cond"); // A ternary operator that evaluates one expression, and depending on the result,
-		// returns the value of one of the other two expressions.
-		map.put("ifNull", "$ifNull"); // Returns either the non-null result of the first expression or the result of the
-		// second expression if the first expression results in a null result.
+		// conditional operators
+		map.put("cond", AggregationMethodReference.builder().methodName("$cond").argumentType(MAPPED).argumentMap(new String[]{"if", "then", "else"}).build());
+		map.put("ifNull", AggregationMethodReference.builder().methodName("$ifNull").argumentType(ARRAY).build());
+
+		// group operators
+		map.put("sum", AggregationMethodReference.builder().methodName("$sum").argumentType(ARRAY).build());
+		map.put("avg", AggregationMethodReference.builder().methodName("$avg").argumentType(ARRAY).build());
+		map.put("first", AggregationMethodReference.builder().methodName("$first").argumentType(SINGLE).build());
+		map.put("last", AggregationMethodReference.builder().methodName("$last").argumentType(SINGLE).build());
+		map.put("max", AggregationMethodReference.builder().methodName("$max").argumentType(ARRAY).build());
+		map.put("min", AggregationMethodReference.builder().methodName("$min").argumentType(ARRAY).build());
+		map.put("push", AggregationMethodReference.builder().methodName("$push").argumentType(SINGLE).build());
+		map.put("addToSet", AggregationMethodReference.builder().methodName("$addToSet").argumentType(SINGLE).build());
+		map.put("stdDevPop", AggregationMethodReference.builder().methodName("$stdDevPop").argumentType(ARRAY).build());
+		map.put("stdDevSamp", AggregationMethodReference.builder().methodName("$stdDevSamp").argumentType(ARRAY).build());
 
 		FUNCTIONS = Collections.unmodifiableMap(map);
 	}
@@ -127,10 +146,42 @@ public class MethodReferenceNode extends ExpressionNode {
 
 	/**
 	 * Returns the name of the method.
+	 * @Deprecated since 1.10. Please use {@link #getMethodReference()}.
 	 */
+	@Deprecated
 	public String getMethodName() {
+
+		AggregationMethodReference methodReference = getMethodReference();
+		return methodReference != null ? methodReference.getMethodName() : null;
+	}
+
+	/**
+	 * Return the {@link AggregationMethodReference}.
+	 *
+	 * @return can be {@literal null}.
+	 * @since 1.10
+	 */
+	public AggregationMethodReference getMethodReference() {
+
 		String name = getName();
 		String methodName = name.substring(0, name.indexOf('('));
 		return FUNCTIONS.get(methodName);
+	}
+
+	/**
+	 * @author Christoph Strobl
+	 * @since 1.10
+	 */
+	@lombok.Data
+	@lombok.Builder
+	public static class AggregationMethodReference {
+
+		private final String methodName;
+		private final ArgumentType argumentType;
+		private final String[] argumentMap;
+
+		public enum ArgumentType {
+			SINGLE, ARRAY, MAPPED
+		}
 	}
 }
